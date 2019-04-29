@@ -42,7 +42,7 @@ class WhoosheeQuery(BaseQuery):
     """An override for SQLAlchemy query used to do fulltext search."""
 
     def whooshee_search(self, search_string, group=whoosh.qparser.OrGroup, whoosheer=None,
-                        match_substrings=True, limit=None, order_by_relevance=10):
+                        match_substrings=True, limit=None, order_by_relevance=10, plugins=None):
         """Do a fulltext search on the query.
         Returns a query filtered with results of the fulltext search.
 
@@ -90,7 +90,8 @@ class WhoosheeQuery(BaseQuery):
                                values_of=uniq,
                                group=group,
                                match_substrings=match_substrings,
-                               limit=limit)
+                               limit=limit,
+                               plugins=plugins)
         if not res:
             return self.filter(text('null'))
 
@@ -135,7 +136,7 @@ class AbstractWhoosheer(object):
     auto_update = True
 
     @classmethod
-    def search(cls, search_string, values_of='', group=whoosh.qparser.OrGroup, match_substrings=True, limit=None):
+    def search(cls, search_string, values_of='', group=whoosh.qparser.OrGroup, match_substrings=True, limit=None, plugins=None):
         """Searches the fields for given search_string.
         Returns the found records if 'values_of' is left empty,
         else the values of the given columns.
@@ -155,7 +156,7 @@ class AbstractWhoosheer(object):
         index = Whooshee.get_or_create_index(_get_app(cls), cls)
         prepped_string = cls.prep_search_string(search_string, match_substrings)
         with index.searcher() as searcher:
-            parser = whoosh.qparser.MultifieldParser(cls.schema.names(), index.schema, group=group)
+            parser = whoosh.qparser.MultifieldParser(cls.schema.names(), index.schema, group=group, plugins=plugins)
             query = parser.parse(prepped_string)
             results = searcher.search(query, limit=limit)
             if values_of:
@@ -174,11 +175,11 @@ class AbstractWhoosheer(object):
             search_string = search_string.decode('utf-8')
         s = search_string.strip()
         # we don't want stars from user
-        s = s.replace('*', '')
         if len(s) < _get_config(cls)['search_string_min_len']:
             raise ValueError('Search string must have at least 3 characters')
         # replace multiple with star space star
         if match_substrings:
+            s = s.replace('*', '')
             s = u'*{0}*'.format(re.sub('[\s]+', '* *', s))
         # TODO: some sanitization
         return s
