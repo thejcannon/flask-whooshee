@@ -1,4 +1,5 @@
 import abc
+from contextlib import ExitStack
 import os
 import re
 import sys
@@ -441,18 +442,17 @@ class Whooshee(object):
         for wh in self.whoosheers:
             if not wh.auto_update:
                 continue
-            writer = None
-            for change in changes:
-                if change[0].__class__ in wh.models:
-                    method_name = '{0}_{1}'.format(change[1], change[0].__class__.__name__.lower())
-                    method = getattr(wh, method_name, None)
-                    if method:
-                        if not writer:
-                            writer = type(self).get_or_create_index(_get_app(self), wh).\
-                                writer(timeout=_get_config(self)['writer_timeout'])
-                        method(writer, change[0])
-            if writer:
-                writer.commit()
+            with ExitStack() as exitStack:
+                writer = None
+                for change in changes:
+                    if change[0].__class__ in wh.models:
+                        method_name = '{0}_{1}'.format(change[1], change[0].__class__.__name__.lower())
+                        method = getattr(wh, method_name, None)
+                        if method:
+                            if not writer:
+                                writer = exitStack.enter_context(type(self).get_or_create_index(_get_app(self), wh).\
+                                    writer(timeout=_get_config(self)['writer_timeout']))
+                            method(writer, change[0])
 
     def reindex(self):
         """Reindex all data
@@ -463,12 +463,11 @@ class Whooshee(object):
         """
         for wh in self.whoosheers:
             index = type(self).get_or_create_index(_get_app(self), wh)
-            writer = index.writer(timeout=_get_config(self)['writer_timeout'])
+            with index.writer(timeout=_get_config(self)['writer_timeout']) as writer:
             for model in wh.models:
                 method_name = "{0}_{1}".format(UPDATE_KWD, model.__name__.lower())
                 for item in model.query.all():
                     getattr(wh, method_name)(writer, item)
-            writer.commit()
 
 
 class WhoosheeDeprecationWarning(DeprecationWarning):
