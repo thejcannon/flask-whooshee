@@ -465,7 +465,7 @@ class Whooshee(object):
             index = type(self).get_or_create_index(_get_app(self), wh)
             with index.writer(timeout=_get_config(self)['writer_timeout']) as writer:
                 for model in wh.models:
-                    method_name = "{0}_{1}".format(UPDATE_KWD, model.__name__.lower())
+                    method_name = "{0}_{1}".format(INSERT_KWD, model.__name__.lower())
                     for item in model.query.all():
                         getattr(wh, method_name)(writer, item)
 
