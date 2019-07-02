@@ -43,7 +43,8 @@ class WhoosheeQuery(BaseQuery):
     """An override for SQLAlchemy query used to do fulltext search."""
 
     def whooshee_search(self, search_string, group=whoosh.qparser.OrGroup, whoosheer=None,
-                        match_substrings=True, limit=None, order_by_relevance=10, plugins=None):
+                        match_substrings=True, limit=None, order_by_relevance=10, plugins=None,
+                        sortedby=None):
         """Do a fulltext search on the query.
         Returns a query filtered with results of the fulltext search.
 
@@ -92,7 +93,8 @@ class WhoosheeQuery(BaseQuery):
                                group=group,
                                match_substrings=match_substrings,
                                limit=limit,
-                               plugins=plugins)
+                               plugins=plugins,
+                               sortedby=sortedby)
         if not res:
             return self.filter(text('null'))
 
@@ -137,7 +139,7 @@ class AbstractWhoosheer(object):
     auto_update = True
 
     @classmethod
-    def search(cls, search_string, values_of='', group=whoosh.qparser.OrGroup, match_substrings=True, limit=None, plugins=None):
+    def search(cls, search_string, values_of='', group=whoosh.qparser.OrGroup, match_substrings=True, limit=None, plugins=None, sortedby=None):
         """Searches the fields for given search_string.
         Returns the found records if 'values_of' is left empty,
         else the values of the given columns.
@@ -159,7 +161,7 @@ class AbstractWhoosheer(object):
         with index.searcher() as searcher:
             parser = whoosh.qparser.MultifieldParser(cls.schema.names(), index.schema, group=group, plugins=plugins)
             query = parser.parse(prepped_string)
-            results = searcher.search(query, limit=limit)
+            results = searcher.search(query, limit=limit, sortedby=sortedby)
             if values_of:
                 return [x[values_of] for x in results]
             return results
